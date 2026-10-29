@@ -1,63 +1,69 @@
+﻿import LoginPage from '../pages/LoginPage';
+import InventoryPage from '../pages/InventoryPage';
+import CartPage from '../pages/CartPage';
 
 describe('SauceDemo - Testes E2E', () => {
-
-  const login = (usuario = 'standard_user', senha = 'secret_sauce') => {
+  beforeEach(() => {
     cy.visit('/');
-    cy.get('[data-test="username"]').type(usuario);
-    cy.get('[data-test="password"]').type(senha);
-    cy.get('[data-test="login-button"]').click();
-  };
+  });
 
   it('CT-01 - Login com sucesso', () => {
-    login();
+    cy.fixture('users').then((users) => {
+      cy.login(users.valid);
 
-    cy.url().should('include', '/inventory.html');
-    cy.get('[data-test="title"]').should('contain', 'Products');
-    cy.get('[data-test="inventory-item"]').should('have.length', 6);
+      cy.url().should('include', '/inventory.html');
+
+      const inventory = new InventoryPage();
+      inventory.shouldShowProducts();
+      inventory.shouldHaveProductCount(6);
+    });
   });
 
   it('CT-02 - Login com senha inválida', () => {
-    login('standard_user', 'senha_errada');
+    cy.fixture('users').then((users) => {
+      cy.login(users.invalidPassword);
 
-    cy.get('[data-test="error"]')
-      .should('be.visible')
-      .and('contain', 'Username and password do not match');
+      const login = new LoginPage();
+      login.shouldShowErrorContaining(
+        'Username and password do not match'
+      );
 
-    cy.url().should('eq', 'https://www.saucedemo.com/');
+      cy.url().should('eq', 'https://www.saucedemo.com/');
+    });
   });
 
   it('CT-03 - Bloqueio de usuário', () => {
-    login('locked_out_user');
+    cy.fixture('users').then((users) => {
+      cy.login(users.locked);
 
-    cy.get('[data-test="error"]')
-      .should('be.visible')
-      .and('contain', 'locked out');
-
-    cy.get('[data-test="login-button"]').should('be.visible');
+      const login = new LoginPage();
+      login.shouldShowErrorContaining('locked out');
+      login.shouldShowLoginButton();
+    });
   });
 
   it('CT-04 - Adicionar produto ao carrinho', () => {
-    login();
+    cy.fixture('users').then((users) => {
+      cy.login(users.valid);
+      cy.addBackpackToCart();
 
-    cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click();
-
-    cy.get('[data-test="shopping-cart-badge"]').should('have.text', '1');
-    cy.get('[data-test="remove-sauce-labs-backpack"]').should('be.visible');
+      const inventory = new InventoryPage();
+      inventory.shouldShowCartCount('1');
+      inventory.shouldShowRemoveBackpackButton();
+    });
   });
 
   it('CT-05 - Remover produto do carrinho', () => {
-    login();
+    cy.fixture('users').then((users) => {
+      cy.login(users.valid);
+      cy.addBackpackToCart();
+      cy.openCart();
 
-    cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click();
-    cy.get('[data-test="shopping-cart-link"]').click();
-
-    cy.get('[data-test="inventory-item-name"]')
-      .should('contain', 'Sauce Labs Backpack');
-
-    cy.get('[data-test="remove-sauce-labs-backpack"]').click();
-
-    cy.get('[data-test="cart-list"]').should('not.contain', 'Sauce Labs Backpack');
-    cy.get('[data-test="checkout"]').should('be.visible');
+      const cart = new CartPage();
+      cart.shouldContainBackpack();
+      cart.removeBackpack();
+      cart.shouldNotContainBackpack();
+      cart.shouldShowCheckoutButton();
+    });
   });
-
 });
